@@ -69,3 +69,23 @@ class AnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Answer
         fields = ['id', 'question', 'text_answer', 'numeric_answer', 'email_answer']
+
+    def validate(self, attrs):
+        question = attrs.get('question')
+        numeric_answer = attrs.get('numeric_answer')
+
+        if question.question_type == 'number':
+            if numeric_answer is not None:
+                if question.min_value is not None and numeric_answer < question.min_value:
+                    raise ValidationError(
+                        {'numeric_answer': f'Answer must be greater than or equal to {question.min_value}.'})
+                if question.max_value is not None and numeric_answer > question.max_value:
+                    raise ValidationError(
+                        {'numeric_answer': f'Answer must be less than or equal to {question.max_value}.'})
+
+        return attrs
+
+# class AnswerSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Answer
+#         fields = ['id', 'question', 'text_answer', 'numeric_answer', 'email_answer']
