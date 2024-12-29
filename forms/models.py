@@ -60,5 +60,46 @@ class Answer(models.Model):
     numeric_answer = models.FloatField(null=True, blank=True)
     email_answer = models.EmailField(null=True, blank=True)
 
+    def clean(self):
+        if self.question.question_type == 'short_text':
+            if self.text_answer and len(self.text_answer) > self.question.max_length:
+                raise ValidationError(
+                    {'text_answer': f'Answer cannot exceed {self.question.max_length} characters for short text.'}
+                )
+
+        elif self.question.question_type == 'long_text':
+            if self.text_answer and len(self.text_answer) > self.question.max_length:
+                raise ValidationError(
+                    {'text_answer': f'Answer cannot exceed {self.question.max_length} characters for long text.'}
+                )
+
+        elif self.question.question_type == 'number':
+            if self.numeric_answer is not None:
+                if self.question.min_value is not None and self.numeric_answer < self.question.min_value:
+                    raise ValidationError(
+                        {'numeric_answer': f'Answer must be greater than or equal to {self.question.min_value}.'}
+                    )
+                if self.question.max_value is not None and self.numeric_answer > self.question.max_value:
+                    raise ValidationError(
+                        {'numeric_answer': f'Answer must be less than or equal to {self.question.max_value}.'}
+                    )
+
+        elif self.question.question_type == 'email':
+            if not self.email_answer:
+                raise ValidationError({'email_answer': 'Email answer is required for email type questions.'})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"Answer to: {self.question.text}"
+
+# class Answer(models.Model):
+#     question = models.ForeignKey(Question, related_name='answers', on_delete=models.CASCADE)
+#     text_answer = models.CharField(max_length=5000, blank=True)
+#     numeric_answer = models.FloatField(null=True, blank=True)
+#     email_answer = models.EmailField(null=True, blank=True)
+#
+#     def __str__(self):
+#         return f"Answer to: {self.question.text}"

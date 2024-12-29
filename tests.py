@@ -112,6 +112,51 @@ def test_retrieve_questions(api_client):
     assert response.data[0]['text'] == "What is your age?"
     print("Test Retrieve Questions Passed")
 
+@pytest.mark.django_db
+def test_answer_validation(api_client):
+    """Test validation for answers."""
+
+    # Create a form and a question
+    form = Form.objects.create(title="Sample Form")
+    question = Question.objects.create(
+        form=form,
+        text="What is your age?",
+        required=True,
+        question_type="number",
+        min_value=10,
+        max_value=50
+    )
+
+    # Valid numeric answer
+    valid_data = {'question': question.id, 'numeric_answer': 25}
+    response = api_client.post('/api/answers/', valid_data, format='json')
+    assert response.status_code == status.HTTP_201_CREATED
+
+    # Invalid numeric answer (out of range)
+    invalid_data = {'question': question.id, 'numeric_answer': 5}
+    response = api_client.post('/api/answers/', invalid_data, format='json')
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert 'numeric_answer' in response.data
+
+    # Test short text question
+    question_short = Question.objects.create(
+        form=form,
+        text="Short text question?",
+        required=True,
+        question_type="short_text",
+        max_length=50
+    )
+    valid_short = {'question': question_short.id, 'text_answer': 'Valid short answer'}
+    invalid_short = {'question': question_short.id, 'text_answer': 'A' * 51}
+
+    response = api_client.post('/api/answers/', valid_short, format='json')
+    assert response.status_code == status.HTTP_201_CREATED
+
+    response = api_client.post('/api/answers/', invalid_short, format='json')
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert 'text_answer' in response.data
+
+
 
 
 

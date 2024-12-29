@@ -58,13 +58,6 @@ class QuestionSerializer(serializers.ModelSerializer):
         return instance
 
 
-# class QuestionSerializer(serializers.ModelSerializer):
-#     form = FormSerializer()
-#
-# class Meta: model = Question fields = ['id', 'form', 'text', 'required', 'question_type', 'max_length',
-# 'min_value', 'max_value', 'allow_decimal']
-
-
 class AnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Answer
@@ -72,16 +65,30 @@ class AnswerSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         question = attrs.get('question')
-        numeric_answer = attrs.get('numeric_answer')
 
-        if question.question_type == 'number':
+        if question.question_type == 'short_text' or question.question_type == 'long_text':
+            text_answer = attrs.get('text_answer', '')
+            if text_answer and len(text_answer) > question.max_length:
+                raise ValidationError(
+                    {'text_answer': f'Answer length cannot exceed {question.max_length} characters.'}
+                )
+
+        elif question.question_type == 'number':
+            numeric_answer = attrs.get('numeric_answer')
             if numeric_answer is not None:
                 if question.min_value is not None and numeric_answer < question.min_value:
                     raise ValidationError(
-                        {'numeric_answer': f'Answer must be greater than or equal to {question.min_value}.'})
+                        {'numeric_answer': f'Answer must be greater than or equal to {question.min_value}.'}
+                    )
                 if question.max_value is not None and numeric_answer > question.max_value:
                     raise ValidationError(
-                        {'numeric_answer': f'Answer must be less than or equal to {question.max_value}.'})
+                        {'numeric_answer': f'Answer must be less than or equal to {question.max_value}.'}
+                    )
+
+        elif question.question_type == 'email':
+            email_answer = attrs.get('email_answer')
+            if not email_answer:
+                raise ValidationError({'email_answer': 'This field is required for email type questions.'})
 
         return attrs
 
@@ -89,3 +96,19 @@ class AnswerSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = Answer
 #         fields = ['id', 'question', 'text_answer', 'numeric_answer', 'email_answer']
+#
+#     def validate(self, attrs):
+#         question = attrs.get('question')
+#         numeric_answer = attrs.get('numeric_answer')
+#
+#         if question.question_type == 'number':
+#             if numeric_answer is not None:
+#                 if question.min_value is not None and numeric_answer < question.min_value:
+#                     raise ValidationError(
+#                         {'numeric_answer': f'Answer must be greater than or equal to {question.min_value}.'})
+#                 if question.max_value is not None and numeric_answer > question.max_value:
+#                     raise ValidationError(
+#                         {'numeric_answer': f'Answer must be less than or equal to {question.max_value}.'})
+#
+#         return attrs
+
