@@ -57,7 +57,6 @@ class QuestionSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-
 class AnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Answer
@@ -66,25 +65,45 @@ class AnswerSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         question = attrs.get('question')
 
-        if question.question_type == 'short_text' or question.question_type == 'long_text':
+        # Check if multiple answer types are provided
+        provided_answers = [
+            bool(attrs.get('text_answer')),
+            bool(attrs.get('numeric_answer')),
+            bool(attrs.get('email_answer'))
+        ]
+
+        if sum(provided_answers) > 1:
+            raise ValidationError("Only one type of answer can be provided for a single question.")
+
+        # Check for existing answer
+        if Answer.objects.filter(question=question).exists():
+            raise ValidationError("An answer already exists for this question.")
+
+        # Validation for short_text and long_text questions
+        if question.question_type in ['short_text', 'long_text']:
             text_answer = attrs.get('text_answer', '')
-            if text_answer and len(text_answer) > question.max_length:
+            if not text_answer:
+                raise ValidationError({'text_answer': 'This field is required for text type questions.'})
+            if len(text_answer) > question.max_length:
                 raise ValidationError(
                     {'text_answer': f'Answer length cannot exceed {question.max_length} characters.'}
                 )
 
+        # Validation for number questions
         elif question.question_type == 'number':
             numeric_answer = attrs.get('numeric_answer')
-            if numeric_answer is not None:
-                if question.min_value is not None and numeric_answer < question.min_value:
-                    raise ValidationError(
-                        {'numeric_answer': f'Answer must be greater than or equal to {question.min_value}.'}
-                    )
-                if question.max_value is not None and numeric_answer > question.max_value:
-                    raise ValidationError(
-                        {'numeric_answer': f'Answer must be less than or equal to {question.max_value}.'}
-                    )
+            if numeric_answer is None:
+                raise ValidationError({'numeric_answer': 'This field is required for numeric type questions.'})
+            if question.min_value is not None and numeric_answer < question.min_value:
+                raise ValidationError(
+                    {'numeric_answer': f'Answer must be greater than or equal to {question.min_value}.'}
+                )
+            if question.max_value is not None and numeric_answer > question.max_value:
+                raise ValidationError(
+                    {'numeric_answer': f'Answer must be less than or equal to {question.max_value}.'}
+                )
 
+        # Validation for email questions
         elif question.question_type == 'email':
             email_answer = attrs.get('email_answer')
             if not email_answer:
@@ -99,16 +118,45 @@ class AnswerSerializer(serializers.ModelSerializer):
 #
 #     def validate(self, attrs):
 #         question = attrs.get('question')
-#         numeric_answer = attrs.get('numeric_answer')
 #
-#         if question.question_type == 'number':
-#             if numeric_answer is not None:
-#                 if question.min_value is not None and numeric_answer < question.min_value:
-#                     raise ValidationError(
-#                         {'numeric_answer': f'Answer must be greater than or equal to {question.min_value}.'})
-#                 if question.max_value is not None and numeric_answer > question.max_value:
-#                     raise ValidationError(
-#                         {'numeric_answer': f'Answer must be less than or equal to {question.max_value}.'})
+#         provided_answers = [
+#             bool(attrs.get('text_answer')),
+#             bool(attrs.get('numeric_answer')),
+#             bool(attrs.get('email_answer'))
+#         ]
+#
+#         if sum(provided_answers) > 1:
+#             raise ValidationError("Only one type of answer can be provided for a single question.")
+#
+#         if Answer.objects.filter(question=question).exists():
+#             raise ValidationError("An answer already exists for this question.")
+#
+#         if question.question_type == 'short_text' or question.question_type == 'long_text':
+#             text_answer = attrs.get('text_answer', '')
+#             if not text_answer:
+#                 raise ValidationError({'text_answer': 'This field is required for text type questions.'})
+#             if len(text_answer) > question.max_length:
+#                 raise ValidationError(
+#                     {'text_answer': f'Answer length cannot exceed {question.max_length} characters.'}
+#                 )
+#
+#         elif question.question_type == 'number':
+#             numeric_answer = attrs.get('numeric_answer')
+#             if numeric_answer is None:
+#                 raise ValidationError({'numeric_answer': 'This field is required for numeric type questions.'})
+#             if question.min_value is not None and numeric_answer < question.min_value:
+#                 raise ValidationError(
+#                     {'numeric_answer': f'Answer must be greater than or equal to {question.min_value}.'}
+#                 )
+#             if question.max_value is not None and numeric_answer > question.max_value:
+#                 raise ValidationError(
+#                     {'numeric_answer': f'Answer must be less than or equal to {question.max_value}.'}
+#                 )
+#
+#         elif question.question_type == 'email':
+#             email_answer = attrs.get('email_answer')
+#             if not email_answer:
+#                 raise ValidationError({'email_answer': 'This field is required for email type questions.'})
 #
 #         return attrs
 
